@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HUPSI Suppress</title>
+<style>
+  :root {
+    --bg: #faf7f2;
+    --card: #ffffff;
+    --text: #2b2320;
+    --muted: #8a7f78;
+    --accent: #b42318;
+    --accent-dark: #8f1b11;
+    --ok-bg: #e8f5ec;
+    --ok-text: #1c6b35;
+    --err-bg: #fdecea;
+    --err-text: #a32014;
+    --border: #e7ded6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(43, 35, 32, .07);
+    width: 100%;
+    max-width: 460px;
+    padding: 32px 28px;
+  }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  h1 span { color: var(--accent); }
+  p.sub { margin: 0 0 24px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  input {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--text);
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  button {
+    width: 100%;
+    margin-top: 14px;
+    padding: 13px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  button:hover { background: var(--accent-dark); }
+  button:disabled { opacity: .6; cursor: wait; }
+  .msg {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    line-height: 1.45;
+    display: none;
+    word-break: break-word;
+  }
+  .msg.ok { display: block; background: var(--ok-bg); color: var(--ok-text); }
+  .msg.err { display: block; background: var(--err-bg); color: var(--err-text); }
+  .history { margin-top: 22px; display: none; }
+  .history h2 { font-size: 13px; color: var(--muted); font-weight: 600; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .04em; }
+  .history ul { list-style: none; margin: 0; padding: 0; }
+  .history li { font-size: 14px; padding: 7px 0; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 10px; }
+  .history li span.t { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .foot { margin-top: 26px; display: flex; justify-content: space-between; align-items: center; }
+  .foot small { color: var(--muted); }
+  .foot a { color: var(--muted); font-size: 13px; cursor: pointer; text-decoration: underline; }
+  #screen-app, #screen-login { display: none; }
+</style>
+</head>
+<body>
+<div class="card">
+
+  <div id="screen-login">
+    <h1><span>HUPSI</span> Suppress</h1>
+    <p class="sub">Bitte melde dich mit dem Passwort an.</p>
+    <form id="login-form">
+      <label for="password">Passwort</label>
+      <input type="password" id="password" autocomplete="current-password" required>
+      <button type="submit" id="login-btn">Anmelden</button>
+    </form>
+    <div class="msg err" id="login-msg"></div>
+  </div>
+
+  <div id="screen-app">
+    <h1><span>HUPSI</span> Suppress</h1>
+    <p class="sub">E-Mail-Adresse eingeben und suppressen: Das Profil erhält danach <strong>keine E-Mails mehr</strong> aus dem Klaviyo-Account.</p>
+    <form id="suppress-form">
+      <label for="email">E-Mail-Adresse</label>
+      <input type="email" id="email" placeholder="kunde@example.de" autocomplete="off" required>
+      <button type="submit" id="suppress-btn">E-Mail suppressen</button>
+    </form>
+    <div class="msg" id="app-msg"></div>
+    <div class="history" id="history">
+      <h2>In dieser Sitzung suppressed</h2>
+      <ul id="history-list"></ul>
+    </div>
+    <div class="foot">
+      <small>Onlinegen GmbH</small>
+      <a id="logout">Abmelden</a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const history = [];
+
+function show(screen) {
+  $("screen-login").style.display = screen === "login" ? "block" : "none";
+  $("screen-app").style.display = screen === "app" ? "block" : "none";
+}
+
+async function api(path, body) {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+  let data = {};
+  try { data = await res.json(); } catch (e) {}
+  return { ok: res.ok, status: res.status, data };
+}
+
+async function init() {
+  try {
+    const res = await fetch("/api/me");
+    const data = await res.json();
+    show(data.authenticated ? "app" : "login");
+  } catch (e) { show("login"); }
+}
+
+$("login-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const btn = $("login-btn");
+  btn.disabled = true;
+  $("login-msg").className = "msg";
+  const r = await api("/api/login", { password: $("password").value });
+  btn.disabled = false;
+  if (r.ok) {
+    $("password").value = "";
+    show("app");
+    $("email").focus();
+  } else {
+    const m = $("login-msg");
+    m.textContent = (r.data && r.data.detail) || "Anmeldung fehlgeschlagen.";
+    m.className = "msg err";
+  }
+});
+
+$("suppress-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const btn = $("suppress-btn");
+  const msg = $("app-msg");
+  const email = $("email").value.trim();
+  btn.disabled = true;
+  btn.textContent = "Wird suppressed …";
+  msg.className = "msg";
+  const r = await api("/api/suppress", { email });
+  btn.disabled = false;
+  btn.textContent = "E-Mail suppressen";
+  if (r.status === 401) { show("login"); return; }
+  if (r.ok) {
+    msg.textContent = "✓ " + (r.data.email || email) + " wurde suppressed.";
+    msg.className = "msg ok";
+    $("email").value = "";
+    $("email").focus();
+    history.unshift({ email: r.data.email || email, time: new Date() });
+    renderHistory();
+  } else {
+    msg.textContent = (r.data && r.data.detail) || "Unbekannter Fehler.";
+    msg.className = "msg err";
+  }
+});
+
+function renderHistory() {
+  if (!history.length) return;
+  $("history").style.display = "block";
+  $("history-list").innerHTML = history.slice(0, 10).map((h) => {
+    const t = h.time.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    const safe = h.email.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    return '<li><span>' + safe + '</span><span class="t">' + t + '</span></li>';
+  }).join("");
+}
+
+$("logout").addEventListener("click", async () => {
+  await api("/api/logout");
+  show("login");
+});
+
+init();
+</script>
+</body>
+</html>

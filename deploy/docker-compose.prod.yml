@@ -1,0 +1,20 @@
+# WICHTIG: expliziter Projektname, sonst kollidiert Compose mit anderen
+# Tools, deren Compose-Datei ebenfalls in einem "deploy/"-Ordner liegt.
+name: hupsi-suppress
+
+services:
+  hupsi-backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      - HUPSI_PASSWORD=${HUPSI_PASSWORD}
+      - KLAVIYO_API_KEY=${KLAVIYO_API_KEY}
+      - SESSION_SECRET=${SESSION_SECRET:-}
+    networks:
+      - deploy_default
+
+networks:
+  deploy_default:
+    external: true

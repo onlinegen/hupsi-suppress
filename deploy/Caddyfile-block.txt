@@ -1,0 +1,7 @@
+# Diesen Block in das Caddyfile des Sale-Report-Stacks eintragen
+# (/opt/klaviyo-sale-report/deploy/Caddyfile), danach Caddy neu laden:
+#   docker restart deploy-caddy-1
+
+hupsi.onlinegen.de {
+    reverse_proxy hupsi-backend:8000
+}
